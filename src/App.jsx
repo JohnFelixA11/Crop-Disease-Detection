@@ -1,45 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import './App.css';
+import { fetchLastFiveFromFirestore } from './firebase/firestoreService';
+import DataTable from './components/DataTable';
 
 function App() {
   const [data, setData] = useState([]);
 
   useEffect(() => {
-    const eventSource = new EventSource('http://localhost:5000/uploaddata');
+    const loadData = async () => {
+      const firestoreData = await fetchLastFiveFromFirestore();
 
-    eventSource.onmessage = (event) => {
-      const parsedData = JSON.parse(event.data);
-      setData((prev) => [parsedData, ...prev]);
+      const filledData = firestoreData.map(item => ({
+        image: item.image || process.env.PUBLIC_URL + '/assets/3.jpg',
+        time: item.time || new Date().toLocaleString(),
+        severity: item.severity || '70%',
+        classification: item.classification || 'Apple___Apple_scab'
+      }));
+
+      setData(filledData);
     };
 
-    return () => eventSource.close();
+    // Initial load
+    loadData();
+
+    // Set interval to fetch every 10 seconds
+    const intervalId = setInterval(() => {
+      loadData();
+    }, 10000); // 10,000 ms = 10 seconds
+
+    // Cleanup on component unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   return (
     <div className="App">
-      <h1>Received Data</h1>
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Image</th>
-            <th>Time Taken</th>
-            <th>Severity</th>
-            <th>Classification</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((entry, index) => (
-            <tr key={index}>
-              <td>
-                <img src={entry.image} alt="uploaded" className="table-img" />
-              </td>
-              <td>{entry.time}</td>
-              <td>{entry.severity}</td>
-              <td>{entry.classification}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <h1>Crop Disease Detection Dashboard</h1>
+      <DataTable data={data} />
     </div>
   );
 }
